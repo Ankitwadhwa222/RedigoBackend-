@@ -154,10 +154,7 @@ socket.on("driver-location-update", (data) => {
   });
 });
 
-
-// Add these socket events after your existing chat events:
-
-// ✅ Enhanced location tracking with route data
+ 
 socket.on('location-update', (data) => {
   console.log('📍 Location update with movement:', {
     userId: data.userId,
