@@ -4,8 +4,7 @@ const Chat = require('../models/chat');
 
 const router = express.Router();
 
-// ✅ Get conversations for Messages page (SPECIFIC ROUTE FIRST)
-// ✅ UPDATED: Get conversations with actual user names
+ 
 router.get('/conversations/:userId', protect, async (req, res) => {
   try {
     const currentUserId = req.user._id;
