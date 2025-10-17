@@ -16,19 +16,19 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:5173",
+    origin: `${process.env.FRONTEND_URL}`,
     methods: ["GET", "POST"],
     credentials: true
   }
 });
 
 app.use(cors({
-  origin: "http://localhost:5173",
+  origin: `${process.env.FRONTEND_URL}`,
   credentials: true
 }));
 app.use(express.json());
 
-// Routes
+
 app.use("/api/rides", rideRoutes);
 app.use("/auth", authRoutes);
 app.use("/auth", otpRoutes);
@@ -36,48 +36,46 @@ app.use("/api/user", userRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/payments", paymentRoutes);
 
-// ✅ Store user-socket mapping for 1-on-1 chat
+
 const userSockets = new Map();
 
 io.on('connection', (socket) => {
   console.log('✅ User connected:', socket.id);
 
-  // ✅ Register user with their socket
+
   socket.on('register-user', (userId) => {
     userSockets.set(userId, socket.id);
     socket.userId = userId;
     console.log(`👤 User ${userId} registered with socket ${socket.id}`);
   });
 
-  // ✅ Join private 1-on-1 chat room
+
   socket.on('join-private-chat', (data) => {
     const { rideId, driverId, passengerId } = data;
-    
-    // ✅ Create a simple room ID for 1-on-1 chat
+  
     const roomId = `ride-${rideId}`;
     socket.join(roomId);
     
     console.log(`🔐 User ${socket.userId} joined 1-on-1 chat room: ${roomId}`);
     
-    // ✅ Store room info on socket
+ 
     socket.currentRoomId = roomId;
     socket.rideId = rideId;
     socket.driverId = driverId;
     socket.passengerId = passengerId;
   });
 
-  // ✅ Handle private 1-on-1 messages
-  // ✅ Handle private 1-on-1 messages with separate threads
+
 socket.on('send-private-message', async (data) => {
   console.log('💬 1-on-1 message received:', data);
   
   try {
-    // ✅ Create separate chat participants for each conversation
+
     const participants = [];
     if (data.driverId) participants.push(data.driverId);
     if (data.passengerId) participants.push(data.passengerId);
     
-    // ✅ Save to database with specific participants
+  
     const newMessage = new Chat({
       rideId: data.rideId,
       userId: data.userId,
@@ -99,11 +97,11 @@ socket.on('send-private-message', async (data) => {
       timestamp: savedMessage.timestamp
     };
     
-    // ✅ Send only to the specific ride room
+
     const roomId = `ride-${data.rideId}`;
     console.log(`📤 Broadcasting to room: ${roomId}`);
     
-    // ✅ Send to all participants in THIS specific conversation
+
     io.to(roomId).emit('receive-private-message', messageToSend);
     
   } catch (error) {
@@ -112,7 +110,7 @@ socket.on('send-private-message', async (data) => {
   }
 });
 
-  // ✅ Handle typing indicators for 1-on-1
+  
   socket.on('typing-private', (data) => {
     const roomId = `ride-${data.rideId}`;
     console.log(`⌨️ User ${data.userId} typing in room: ${roomId}`);
@@ -125,7 +123,7 @@ socket.on('send-private-message', async (data) => {
     socket.to(roomId).emit('user-stop-typing-private', data);
   });
 
-  // ✅ Handle disconnect
+
   socket.on('disconnect', () => {
     console.log('❌ User disconnected:', socket.id);
     
@@ -138,11 +136,11 @@ socket.on('send-private-message', async (data) => {
   socket.on('error', (error) => {
     console.error('🚨 Socket error:', error);
   });
-  // ✅ DRIVER SENDS LIVE LOCATION
+ 
 socket.on("driver-location-update", (data) => {
   const { driverId, rideId, latitude, longitude } = data;
 
-  // Broadcast to the passenger in this ride room
+
   const roomId = `ride-${rideId}`;
   console.log(`📍 Driver ${driverId} updated location for ${roomId}:`, latitude, longitude);
   
@@ -166,7 +164,7 @@ socket.on('location-update', (data) => {
     lng: data.coords.lng
   });
   
-  // Broadcast to all users in the same ride except sender
+
   socket.to(`ride-${data.rideId}`).emit('receive-location-update', {
     userId: data.userId,
     rideId: data.rideId,
@@ -202,11 +200,6 @@ socket.on('leave-ride-tracking', (data) => {
 });
 
 
-
-
-
-
-// Connect to database
 connectDB();
 
 const PORT = process.env.PORT || 5000;
