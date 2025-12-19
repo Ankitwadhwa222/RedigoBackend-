@@ -222,7 +222,7 @@ io.on('connection', (socket) => {
           await notificationService.createNotification({
             userId: otherParticipantId,
             type: 'new_message',
-            title: '💬 New Message',
+            title: 'New Message',
             message: `${data.userName}: ${data.message.substring(0, 50)}${data.message.length > 50 ? '...' : ''}`,
             metadata: {
               rideId: data.rideId,
@@ -232,41 +232,41 @@ io.on('connection', (socket) => {
             },
             priority: 'medium'
           });
-          console.log(`📱 Notification sent to user ${otherParticipantId}`);
+          console.log(`Notification sent to user ${otherParticipantId}`);
         }
       } catch (notifError) {
-        console.error('❌ Error sending message notification:', notifError);
+        console.error('Error sending message notification:', notifError);
       }
       
     } catch (error) {
-      console.error('❌ Error saving message:', error);
+      console.error('Error saving message:', error);
       socket.emit('message-error', { error: 'Failed to send message' });
     }
   });
   
   socket.on('typing-private', (data) => {
     const roomId = `ride-${data.rideId}`;
-    console.log(`⌨️ User ${data.userId} typing in room: ${roomId}`);
+    console.log(`User ${data.userId} typing in room: ${roomId}`);
     socket.to(roomId).emit('user-typing-private', data);
   });
 
   socket.on('stop-typing-private', (data) => {
     const roomId = `ride-${data.rideId}`;
-    console.log(`⌨️ User ${data.userId} stopped typing in room: ${roomId}`);
+    console.log(`User ${data.userId} stopped typing in room: ${roomId}`);
     socket.to(roomId).emit('user-stop-typing-private', data);
   });
 
   socket.on('disconnect', () => {
-    console.log('❌ User disconnected:', socket.id);
+    console.log('User disconnected:', socket.id);
     
     if (socket.userId) {
       userSockets.delete(socket.userId);
-      console.log(`🗑️ Removed user ${socket.userId} from socket mapping`);
+      console.log(`Removed user ${socket.userId} from socket mapping`);
     }
   });
 
   socket.on('error', (error) => {
-    console.error('🚨 Socket error:', error);
+    console.error('Socket error:', error);
   });
  
   socket.on("driver-location-update", (data) => {
@@ -308,7 +308,6 @@ io.on('connection', (socket) => {
     console.log('🚗 User joined ride tracking:', data.rideId, 'User:', data.userId, 'Role:', data.userRole);
     socket.join(`ride-${data.rideId}`);
     
-    // Notify others that user started tracking
     socket.to(`ride-${data.rideId}`).emit('user-started-tracking', {
       userId: data.userId,
       userRole: data.userRole,
@@ -319,8 +318,7 @@ io.on('connection', (socket) => {
   socket.on('leave-ride-tracking', (data) => {
     console.log('🚪 User left ride tracking:', data.rideId, 'User:', data.userId);
     socket.leave(`ride-${data.rideId}`);
-    
-    // Notify others that user stopped tracking
+  
     socket.to(`ride-${data.rideId}`).emit('user-stopped-tracking', {
       userId: data.userId,
       message: 'User stopped location tracking'
@@ -328,7 +326,7 @@ io.on('connection', (socket) => {
   });
 });
 
-// Global error handler
+ 
 app.use((err, req, res, next) => {
   console.error('❌ Global Error:', err);
   res.status(500).json({
@@ -338,7 +336,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-// FIXED: Handle 404 routes - Use middleware instead of app.all('*')
+ 
 app.use((req, res, next) => {
   res.status(404).json({
     success: false,
@@ -360,33 +358,27 @@ app.use((req, res, next) => {
 const PORT = process.env.PORT || 5000;
 
 server.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`💬 1-on-1 Chat System Ready`);
-  console.log(`🔗 WebSocket server ready at ws://localhost:${PORT}/ws/notifications`);
-  console.log(`📱 Real-time notifications active`);
-  console.log(`🌐 API Base URL: http://localhost:${PORT}/api`);
-  console.log('📋 Available routes:');
-  console.log('  - GET /health');
-  console.log('  - POST /api/test-notification');
-  console.log('  - GET /api/notifications/latest');
-  console.log('  - GET /api/notifications/unread-count');
-  console.log('  - PATCH /api/notifications/:id/status');
-  console.log('  - POST /api/notifications/test');
+  console.log(`Server running on port ${PORT}`);
+  console.log(`1-on-1 Chat System Ready`);
+  console.log(`WebSocket server ready at ws://localhost:${PORT}/ws/notifications`);
+  console.log(`Real-time notifications active`);
+  console.log(`API Base URL: http://localhost:${PORT}/api`);
+   
+
 });
 
-// Graceful shutdown handlers
 process.on('uncaughtException', (error) => {
-  console.error('❌ Uncaught Exception:', error);
+  console.error('Uncaught Exception:', error);
 });
 
 process.on('unhandledRejection', (error) => {
-  console.error('❌ Unhandled Rejection:', error);
+  console.error('Unhandled Rejection:', error);
 });
 
 process.on('SIGTERM', () => {
-  console.log('🛑 SIGTERM received, shutting down gracefully');
+  console.log('SIGTERM received, shutting down gracefully');
   server.close(() => {
-    console.log('✅ Process terminated');
+    console.log('Process terminated');
   });
 });
 

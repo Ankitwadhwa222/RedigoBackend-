@@ -62,13 +62,13 @@ const notificationSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Indexes for better query performance
+ 
 notificationSchema.index({ userId: 1, createdAt: -1 });
 notificationSchema.index({ userId: 1, status: 1 });
 notificationSchema.index({ type: 1 });
 notificationSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
-// Virtual for time formatting
+ 
 notificationSchema.virtual('timeAgo').get(function() {
   const now = new Date();
   const diff = now - this.createdAt;

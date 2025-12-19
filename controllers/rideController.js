@@ -94,11 +94,11 @@ const bookRide = async (req, res) => {
 const getUserBookedRides = async (req, res) => {
   try {
     const userId = req.user._id || req.user.id;
-    const { status, page = 1, limit = 10 } = req.query;
+    const { status, page = 1, limit = 10, timeFilter } = req.query;
 
     console.log(`📋 Fetching booked rides for user ${userId}`);
 
-    const result = await getUserBookedRidesService(userId, { status, page, limit });
+    const result = await getUserBookedRidesService(userId, { status, page, limit, timeFilter });
 
     if (result.success) {
       console.log(`✅ Found ${result.rides.length} booked rides for user ${userId}`);

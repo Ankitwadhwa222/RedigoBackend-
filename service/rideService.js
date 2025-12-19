@@ -222,6 +222,56 @@ const bookRideService = async (rideId, userId, seatsBooked, user, app) => {
       };
     }
 
+    // Check for time conflicts with existing bookings
+    const rideDate = new Date(rideRaw.date);
+    const rideTime = rideDate.getTime();
+    const timeBuffer = 2 * 60 * 60 * 1000; // 2 hours buffer
+
+    console.log('⏰ Checking for time conflicts...');
+    
+    // Find all rides where user is already a passenger
+    const conflictingRides = await Ride.find({
+      'passengers.userId': userId,
+      _id: { $ne: rideId }, // Exclude current ride
+      status: { $in: ['active', 'scheduled'] }
+    });
+
+    // Check for time conflicts
+    for (const existingRide of conflictingRides) {
+      const existingRideTime = new Date(existingRide.date).getTime();
+      const timeDiff = Math.abs(rideTime - existingRideTime);
+      
+      if (timeDiff < timeBuffer) {
+        const conflictDate = new Date(existingRide.date).toLocaleString();
+        return {
+          success: false,
+          message: `You already have a ride booked at ${conflictDate}. Cannot book overlapping rides within 2 hours of each other.`,
+          conflictingRide: {
+            id: existingRide._id,
+            from: existingRide.from,
+            to: existingRide.to,
+            date: conflictDate
+          }
+        };
+      }
+    }
+
+    console.log('✅ No time conflicts found');
+
+    // Additional database-level check for existing booking
+    const existingBooking = await Ride.findOne({
+      _id: rideId,
+      'passengers.userId': userId
+    });
+
+    if (existingBooking) {
+      console.log('❌ User already has booking in this ride');
+      return {
+        success: false,
+        message: 'You have already booked this ride'
+      };
+    }
+
     console.log('🔍 Raw ride driver structure:', JSON.stringify(rideRaw.driver, null, 2));
 
     // Extract driver ID from the raw data structure
@@ -356,15 +406,34 @@ const validateBooking = (ride, userId, seatsBooked, driverId) => {
   }
 
   // Check if user already booked this ride
+  console.log('🔍 Checking existing passengers:', ride.passengers.map(p => ({
+    userId: p.userId,
+    userIdType: typeof p.userId,
+    userIdString: p.userId?.toString ? p.userId.toString() : 'no toString method'
+  })));
+  
+  console.log('🔍 Current user ID:', userId.toString());
+  
   const alreadyBooked = ride.passengers.some(p => {
     let passengerUserId;
-    if (typeof p.userId === 'object' && p.userId._id) {
-      passengerUserId = p.userId._id.toString();
+    
+    // Handle populated user object
+    if (typeof p.userId === 'object' && p.userId !== null) {
+      if (p.userId._id) {
+        passengerUserId = p.userId._id.toString();
+      } else if (p.userId.toString) {
+        passengerUserId = p.userId.toString();
+      }
     } else {
+      // Handle ObjectId string
       passengerUserId = p.userId.toString();
     }
+    
+    console.log('🔍 Comparing passenger:', passengerUserId, 'with user:', userId.toString());
     return passengerUserId === userId.toString();
   });
+
+  console.log('🔍 Already booked result:', alreadyBooked);
 
   if (alreadyBooked) {
     return {
@@ -529,7 +598,8 @@ const getUserBookedRidesService = async (userId, options = {}) => {
     // Transform rides to include user role and booking details
     const transformedRides = rides.map(ride => {
       const isDriver = ride.driver.userId._id.toString() === userId.toString();
-      const passengerBooking = ride.passengers.find(p => 
+      const passengers = ride.passengers || [];
+      const passengerBooking = passengers.find(p => 
         p.userId._id.toString() === userId.toString()
       );
 
@@ -537,11 +607,11 @@ const getUserBookedRidesService = async (userId, options = {}) => {
         ...ride,
         userRole: isDriver ? 'driver' : 'passenger',
         userBooking: passengerBooking || null,
-        totalEarnings: isDriver ? ride.passengers.reduce((sum, p) => 
+        totalEarnings: isDriver ? passengers.reduce((sum, p) => 
           sum + (ride.price * p.seatsBooked), 0
         ) : null,
-        totalPassengers: ride.passengers.length,
-        bookedSeats: ride.passengers.reduce((sum, p) => sum + p.seatsBooked, 0),
+        totalPassengers: passengers.length,
+        bookedSeats: passengers.reduce((sum, p) => sum + p.seatsBooked, 0),
         isUpcoming: new Date(ride.date) > new Date(),
         isCompleted: new Date(ride.date) < new Date()
       };

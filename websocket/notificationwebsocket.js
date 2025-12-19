@@ -8,7 +8,8 @@ class NotificationWebSocketServer {
   noServer: true
 });
 
-// Attach only for specific path
+// so this basically upgradiing the request if new notification is coming
+//  and mapping the users eg if one person has multiple tabs openened soo thats why  
 server.on('upgrade', (req, socket, head) => {
   if (req.url.startsWith('/ws/notifications')) {
     this.wss.handleUpgrade(req, socket, head, (ws) => {
@@ -116,7 +117,7 @@ server.on('upgrade', (req, socket, head) => {
 
   async sendPendingNotifications(userId, ws) {
     try {
-      // Only try to get Notification model if it exists
+     
       let notifications = [];
       try {
         const Notification = require('../models/notifications');
@@ -198,7 +199,7 @@ server.on('upgrade', (req, socket, head) => {
     return connections ? connections.size : 0;
   }
 
-  // FIXED: Add the missing getStats method
+  
   getStats() {
     const totalConnections = Array.from(this.clients.values())
       .reduce((sum, connections) => sum + connections.size, 0);
@@ -211,7 +212,7 @@ server.on('upgrade', (req, socket, head) => {
     };
   }
 
-  // Additional helper methods
+ 
   isUserConnected(userId) {
     return this.clients.has(userId.toString()) && this.clients.get(userId.toString()).size > 0;
   }

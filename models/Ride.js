@@ -400,12 +400,12 @@ rideSchema.methods.canUserBook = function(userId, seatsNeeded = 1) {
   const userIdStr = userId.toString();
   const driverIdStr = this.driver.userId.toString();
   
-  // Check if user is driver
+   
   if (driverIdStr === userIdStr) {
     return { canBook: false, reason: 'Cannot book your own ride' };
   }
   
-  // Check if user already booked
+  
   const alreadyBooked = this.passengers.some(p => 
     p.userId.toString() === userIdStr
   );
@@ -413,19 +413,19 @@ rideSchema.methods.canUserBook = function(userId, seatsNeeded = 1) {
     return { canBook: false, reason: 'Already booked this ride' };
   }
   
-  // Check available seats
+ 
   if (this.availableSeats < seatsNeeded) {
     return { canBook: false, reason: 'Not enough seats available' };
   }
   
-  // Check if ride is in future (allow same day bookings)
+  
   const now = new Date();
   const rideDateTime = new Date(`${this.date.toDateString()} ${this.time}`);
   if (rideDateTime < now) {
     return { canBook: false, reason: 'Ride time has passed' };
   }
   
-  // Check if ride is bookable
+ 
   if (!['active', 'started'].includes(this.status)) {
     return { canBook: false, reason: 'Ride is not available for booking' };
   }
@@ -463,7 +463,7 @@ rideSchema.methods.removePassenger = function(userId) {
   return { passenger: removedPassenger, ride: this.save() };
 };
 
-// Method to get ride summary
+ 
 rideSchema.methods.getSummary = function() {
   return {
     id: this._id,

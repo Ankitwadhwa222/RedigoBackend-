@@ -19,7 +19,7 @@ const chatSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  // ✅ Store who can see this chat
+ 
   chatParticipants: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
