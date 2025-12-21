@@ -75,6 +75,7 @@ app.set('notificationService', notificationService);
  
 app.use("/api/rides", rideRoutes);
 app.use("/auth", authRoutes);
+app.use("/auth", otpRoutes);
 app.use("/api/otp", otpRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/chat", chatRoutes);
@@ -105,6 +106,7 @@ app.get('/health', (req, res) => {
       timestamp: new Date().toISOString(),
       server: {
         port: process.env.PORT || 5000,
+        
         uptime: process.uptime(),
         memory: process.memoryUsage(),
         nodeVersion: process.version
