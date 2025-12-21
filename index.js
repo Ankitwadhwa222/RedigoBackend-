@@ -75,7 +75,7 @@ app.set('notificationService', notificationService);
  
 app.use("/api/rides", rideRoutes);
 app.use("/auth", authRoutes);
-app.use("/auth", otpRoutes);
+app.use("/api/otp", otpRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/payments", paymentRoutes);

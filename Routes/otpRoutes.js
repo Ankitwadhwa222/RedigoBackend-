@@ -87,6 +87,48 @@ router.post("/verify-otp", async (req, res) => {
      }
 });
 
+// Test email endpoint for debugging
+router.post("/test-email", async (req, res) => {
+     try {
+          const { email } = req.body;
+          
+          if (!email) {
+               return res.status(400).json({ 
+                    success: false, 
+                    message: 'Email is required' 
+               });
+          }
+
+          console.log('🧪 Testing email delivery to:', email);
+          console.log('🔧 Using Resend API Key:', process.env.RESEND_API_KEY ? 'Present' : 'Missing');
+          console.log('🔧 Using FROM email:', process.env.RESEND_FROM_EMAIL);
+          
+          const testOTP = Math.floor(100000 + Math.random() * 900000);
+          
+          const result = await emailService.sendOTP(email, "🧪 Test Email - Redigo OTP Service", testOTP);
+          
+          console.log('✅ Test email result:', JSON.stringify(result, null, 2));
+          
+          res.status(200).json({
+               success: true,
+               message: 'Test email sent successfully!',
+               provider: result.provider,
+               messageId: result.messageId || 'No message ID returned',
+               testOTP: testOTP,
+               emailService: emailService.getStatus()
+          });
+
+     } catch (error) {
+          console.error('❌ Test email failed:', error);
+          res.status(500).json({
+               success: false,
+               message: 'Test email failed',
+               error: error.message,
+               emailService: emailService.getStatus()
+          });
+     }
+});
+
 // Email service status endpoint
 router.get("/email-status", (req, res) => {
      const status = emailService.getStatus();

@@ -37,25 +37,9 @@ class EmailService {
           }
         });
 
-        // Verify nodemailer connection
-        await new Promise((resolve, reject) => {
-          const timeout = setTimeout(() => reject(new Error('Verification timeout')), 15000);
-          
-          this.nodemailerTransporter.verify((error, success) => {
-            clearTimeout(timeout);
-            if (error) {
-              console.warn('⚠️ Nodemailer verification failed:', error.message);
-              resolve(false);
-            } else {
-              console.log('✅ Nodemailer email service initialized');
-              resolve(true);
-            }
-          });
-        }).then(() => {
-          this.isNodemailerReady = true;
-        }).catch(() => {
-          this.isNodemailerReady = false;
-        });
+        // Don't verify nodemailer during init to avoid blocking - just mark as ready
+        this.isNodemailerReady = true;
+        console.log('✅ Nodemailer email service configured (will verify on use)');
 
       } catch (error) {
         console.error('❌ Nodemailer initialization failed:', error.message);
@@ -172,8 +156,10 @@ class EmailService {
 
     try {
       console.log('📧 Sending email via Resend to:', to);
+      console.log('📧 From email:', process.env.RESEND_FROM_EMAIL);
+      console.log('📧 API Key present:', !!process.env.RESEND_API_KEY);
       
-      const data = await this.resend.emails.send({
+      const emailData = {
         from: process.env.RESEND_FROM_EMAIL || 'Redigo <noreply@redigo.com>',
         to: [to],
         subject: subject || 'Your Redigo Verification Code',
@@ -190,12 +176,37 @@ If you didn't request this code, please ignore this email.
 Best regards,
 The Redigo Team
         `.trim()
-      });
+      };
 
-      console.log('✅ Email sent via Resend:', data.id);
-      return { success: true, provider: 'Resend', messageId: data.id };
+      console.log('📤 Sending with data structure:', JSON.stringify({
+        from: emailData.from,
+        to: emailData.to,
+        subject: emailData.subject,
+        hasHtml: !!emailData.html,
+        hasText: !!emailData.text
+      }, null, 2));
+
+      const result = await this.resend.emails.send(emailData);
+
+      console.log('📥 Full Resend API response:', JSON.stringify(result, null, 2));
+
+      if (result.error) {
+        console.error('❌ Resend returned error:', JSON.stringify(result.error, null, 2));
+        throw new Error(`Resend API error: ${JSON.stringify(result.error)}`);
+      }
+
+      const messageId = result.data?.id || result.id || 'sent-without-id';
+      console.log('✅ Email sent via Resend. Message ID:', messageId);
+      
+      return { 
+        success: true, 
+        provider: 'Resend', 
+        messageId: messageId,
+        fullResponse: result
+      };
     } catch (error) {
-      console.error('❌ Resend failed:', error.message);
+      console.error('❌ Resend failed with error:', error);
+      console.error('❌ Error stack:', error.stack);
       throw error;
     }
   }
