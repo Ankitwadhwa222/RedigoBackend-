@@ -1,8 +1,7 @@
 const jwt = require("jsonwebtoken");
 const express = require('express');
 const  OTP = require('../models/otp');
-const sendOTP = require("../config/nodemailerconfig");
-const emailService = require("../config/enhancedEmailService");
+const { sendMail } = require("../config/nodemailerconfig");
 
 const User = require('../models/User');
 
@@ -26,34 +25,22 @@ router.post("/send-otp" , async (req, res) => {
                expiresAt
           })
 
-          // Try enhanced email service first (Resend + Nodemailer with fallback)
+          // Send OTP via nodemailer
           try {
-               const result = await emailService.sendOTP(email, "Your Redigo Verification Code", otp);
-               console.log(`✅ OTP sent successfully via ${result.provider}:`, result.messageId);
+               await sendMail(email, "Your Redigo Verification Code", otp);
+               console.log("✅ OTP sent successfully via Nodemailer");
                res.status(200).json({
                     message: "OTP sent successfully",
-                    provider: result.provider
+                    provider: "Nodemailer"
                });
           } catch (emailError) {
-               console.error("❌ Enhanced email service failed, trying legacy:", emailError.message);
-               
-               // Fallback to original nodemailer as last resort
-               try {
-                    await sendOTP.sendMail(email, "Your OTP for Redigo", otp);
-                    console.log("✅ OTP sent via legacy nodemailer");
-                    res.status(200).json({
-                         message: "OTP sent successfully", 
-                         provider: "Legacy Nodemailer"
-                    });
-               } catch (legacyError) {
-                    console.error("❌ All email methods failed:", legacyError.message);
-                    // Still return success since OTP is saved in DB, user can retry
-                    res.status(200).json({
-                         message: "OTP generated and saved. Email delivery may be delayed due to service issues.",
-                         warning: "Please check your email in a few minutes or request a new OTP if needed.",
-                         emailError: true
-                    });
-               }
+               console.error("❌ Email sending failed:", emailError.message);
+               // Still return success since OTP is saved in DB, user can retry
+               res.status(200).json({
+                    message: "OTP generated and saved. Email delivery may be delayed due to service issues.",
+                    warning: "Please check your email in a few minutes or request a new OTP if needed.",
+                    emailError: true
+               });
           }
      }
 
@@ -100,22 +87,21 @@ router.post("/test-email", async (req, res) => {
           }
 
           console.log('🧪 Testing email delivery to:', email);
-          console.log('🔧 Using Resend API Key:', process.env.RESEND_API_KEY ? 'Present' : 'Missing');
-          console.log('🔧 Using FROM email:', process.env.RESEND_FROM_EMAIL);
+          console.log('🔧 Using Email:', process.env.EMAIL ? 'Present' : 'Missing');
+          console.log('🔧 Using App Password:', process.env.EMAIL_PASSWORD ? 'Present' : 'Missing');
           
           const testOTP = Math.floor(100000 + Math.random() * 900000);
           
-          const result = await emailService.sendOTP(email, "🧪 Test Email - Redigo OTP Service", testOTP);
+          await sendMail(email, "🧪 Test Email - Redigo OTP Service", testOTP);
           
-          console.log('✅ Test email result:', JSON.stringify(result, null, 2));
+          console.log('✅ Test email sent successfully via Nodemailer');
           
           res.status(200).json({
                success: true,
                message: 'Test email sent successfully!',
-               provider: result.provider,
-               messageId: result.messageId || 'No message ID returned',
+               provider: 'Nodemailer',
                testOTP: testOTP,
-               emailService: emailService.getStatus()
+               emailService: 'Nodemailer configured'
           });
 
      } catch (error) {
@@ -124,21 +110,19 @@ router.post("/test-email", async (req, res) => {
                success: false,
                message: 'Test email failed',
                error: error.message,
-               emailService: emailService.getStatus()
+               emailService: 'Nodemailer - Error occurred'
           });
      }
 });
 
 // Email service status endpoint
 router.get("/email-status", (req, res) => {
-     const status = emailService.getStatus();
+     const emailConfigured = !!(process.env.EMAIL && process.env.EMAIL_PASSWORD);
      res.status(200).json({
-          status: status,
-          message: status.hasAnyService ? "Email services available" : "No email services available",
-          services: {
-               resend: status.resend ? "Available" : "Not configured",
-               nodemailer: status.nodemailer ? "Available" : "Not configured"
-          }
+          status: emailConfigured,
+          message: emailConfigured ? "Nodemailer service available" : "Email service not configured",
+          service: "Nodemailer with Gmail SMTP",
+          configured: emailConfigured ? "Available" : "Not configured"
      });
 });
 
