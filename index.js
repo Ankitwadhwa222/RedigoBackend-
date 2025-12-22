@@ -85,27 +85,9 @@ app.use("/api/payments", paymentRoutes);
 const notificationRoutes = createNotificationRoutes(wsServer, notificationService);
 app.use('/api/notifications', notificationRoutes);
 
-// Root endpoint
-app.get('/', (req, res) => {
-  res.json({
-    message: 'Redigo Backend API is running!',
-    status: 'active',
-    timestamp: new Date().toISOString(),
-    version: '1.0.0',
-    endpoints: {
-      health: '/health',
-      auth: '/auth/*',
-      rides: '/api/rides/*',
-      user: '/api/user/*',
-      chat: '/api/chat/*',
-      payments: '/api/payments/*',
-      notifications: '/api/notifications/*',
-      otp: '/api/otp/*'
-    }
-  });
-});
+ 
 
-// Health check endpoint
+ 
 app.get('/health', (req, res) => {
   try {
     let wsStats = {
