@@ -23,32 +23,30 @@ const allowedOrigins = [
 
 console.log('🌐 Allowed Origins:', allowedOrigins);
 
-app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (mobile apps, postman, etc.)
-    if (!origin) return callback(null, true);
+// Manual CORS middleware that works better with Vercel serverless
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  console.log('🔍 Request from origin:', origin);
+  
+  // Set CORS headers for all requests
+  if (!origin || allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin || '*');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
     
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      console.log('❌ CORS blocked origin:', origin);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  preflightContinue: false,
-  optionsSuccessStatus: 204
-}));
-
-// Explicit preflight handler
-app.options('*', (req, res) => {
-  res.header('Access-Control-Allow-Origin', req.headers.origin);
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.sendStatus(204);
+    console.log('✅ CORS headers set for origin:', origin);
+  } else {
+    console.log('❌ CORS blocked for origin:', origin);
+  }
+  
+  // Handle preflight OPTIONS requests
+  if (req.method === 'OPTIONS') {
+    console.log('🚀 Handling preflight request');
+    return res.sendStatus(204);
+  }
+  
+  next();
 });
 
 app.use(express.json({ limit: '10mb' }));
@@ -69,6 +67,20 @@ const connectToDatabase = async () => {
     throw error;
   }
 };
+
+// Test CORS endpoint
+app.get('/test-cors', (req, res) => {
+  console.log('🧪 CORS test endpoint called');
+  console.log('Origin:', req.headers.origin);
+  console.log('Headers:', req.headers);
+  
+  res.json({
+    message: 'CORS test successful!',
+    origin: req.headers.origin,
+    timestamp: new Date().toISOString(),
+    headers: res.getHeaders()
+  });
+});
 
 // Root endpoint
 app.get('/', (req, res) => {
