@@ -2,31 +2,20 @@ const nodemailer = require('nodemailer');
 
 const transporter = nodemailer.createTransport({
      host: 'smtp.gmail.com',
-     port: 587,
-     secure: false, // Use STARTTLS
+     port: 465,
+     secure: true, // Use SSL
      auth: {
           user: process.env.EMAIL,
           pass: process.env.EMAIL_PASSWORD 
      },
-     tls: {
-          rejectUnauthorized: false
-     },
-     connectionTimeout: 60000, // 60 seconds
-     greetingTimeout: 30000,   // 30 seconds
-     socketTimeout: 60000      // 60 seconds
+     
+     
 });
 
-// Verify transporter configuration
-transporter.verify((error, success) => {
-     if (error) {
-          console.error('❌ SMTP Configuration Error:', error);
-     } else {
-          console.log('✅ SMTP Server is ready to send emails');
-     }
-});
+ 
 
-function sendMail(to, subject, otp) {
-    return new Promise((resolve, reject) => {
+ async function sendMail(to, subject, otp) {
+    return await new Promise((resolve, reject) => {
         const mailOptions = {
             from: `"Redigo" <${process.env.EMAIL}>`,  
             to: to,
