@@ -1,29 +1,40 @@
 const express = require("express");
-const http = require("http");
-const { Server } = require("socket.io");
 const cors = require("cors");
 require("dotenv").config();
 const connectDB = require("./config/db");
-
-// Import WebSocket and Notification Services - FIXED FILENAMES
-const NotificationWebSocketServer = require('./websocket/notificationwebsocket');
-const NotificationService = require('./service/notificatoinService');
-const createNotificationRoutes = require('./Routes/notificationRoutes');
 
 // Import Routes
 const rideRoutes = require("./Routes/Rideroutes");
 const authRoutes = require("./Routes/Authroutes");
 const otpRoutes = require("./Routes/otpRoutes");  
 const userRoutes = require("./Routes/userRoutes");
-const chatRoutes = require("./Routes/chatRoutes");
-const Chat = require("./models/chat");
 const paymentRoutes = require("./Routes/paymentRoutes");
 
+// Conditional imports for non-serverless environment
+let http, Server, NotificationWebSocketServer, NotificationService, createNotificationRoutes, chatRoutes, Chat;
+
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+  http = require("http");
+  Server = require("socket.io").Server;
+  NotificationWebSocketServer = require('./websocket/notificationwebsocket');
+  NotificationService = require('./service/notificatoinService');
+  createNotificationRoutes = require('./Routes/notificationRoutes');
+  chatRoutes = require("./Routes/chatRoutes");
+  Chat = require("./models/chat");
+}
+
 const app = express();
-const server = http.createServer(app);
+
+// Create server only for non-serverless environment
+let server;
+if (http) {
+  server = http.createServer(app);
+}
 
 // Fix MaxListeners warning
-require('events').EventEmitter.defaultMaxListeners = 20;
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+  require('events').EventEmitter.defaultMaxListeners = 20;
+}
 
 // CORS Configuration
 const allowedOrigins = [
@@ -80,7 +91,10 @@ app.use("/auth", authRoutes);
 app.use("/auth", otpRoutes);
 app.use("/api/otp", otpRoutes);
 app.use("/api/user", userRoutes);
-app.use("/api/chat", chatRoutes);
+// Only add chat routes if available
+if (chatRoutes) {
+  app.use("/api/chat", chatRoutes);
+}
 app.use("/api/payments", paymentRoutes);
 
 // Only add notification routes if WebSocket is available
