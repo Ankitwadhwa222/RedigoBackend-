@@ -1,40 +1,29 @@
 const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
 const cors = require("cors");
 require("dotenv").config();
 const connectDB = require("./config/db");
+
+// Import WebSocket and Notification Services - FIXED FILENAMES
+const NotificationWebSocketServer = require('./websocket/notificationwebsocket');
+const NotificationService = require('./service/notificatoinService');
+const createNotificationRoutes = require('./Routes/notificationRoutes');
 
 // Import Routes
 const rideRoutes = require("./Routes/Rideroutes");
 const authRoutes = require("./Routes/Authroutes");
 const otpRoutes = require("./Routes/otpRoutes");  
 const userRoutes = require("./Routes/userRoutes");
+const chatRoutes = require("./Routes/chatRoutes");
+const Chat = require("./models/chat");
 const paymentRoutes = require("./Routes/paymentRoutes");
 
-// Conditional imports for non-serverless environment
-let http, Server, NotificationWebSocketServer, NotificationService, createNotificationRoutes, chatRoutes, Chat;
-
-if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
-  http = require("http");
-  Server = require("socket.io").Server;
-  NotificationWebSocketServer = require('./websocket/notificationwebsocket');
-  NotificationService = require('./service/notificatoinService');
-  createNotificationRoutes = require('./Routes/notificationRoutes');
-  chatRoutes = require("./Routes/chatRoutes");
-  Chat = require("./models/chat");
-}
-
 const app = express();
-
-// Create server only for non-serverless environment
-let server;
-if (http) {
-  server = http.createServer(app);
-}
+const server = http.createServer(app);
 
 // Fix MaxListeners warning
-if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
-  require('events').EventEmitter.defaultMaxListeners = 20;
-}
+require('events').EventEmitter.defaultMaxListeners = 20;
 
 // CORS Configuration
 const allowedOrigins = [
@@ -54,54 +43,47 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+// Initialize Socket.IO
+const io = new Server(server, {
+  cors: {
+    origin: allowedOrigins,
+    methods: ["GET", "POST"],
+    credentials: true
+  },
+  transports: ['polling', 'websocket'], // ✅ FIXED: Try polling first
+  allowEIO3: true,
+  pingTimeout: 60000,
+  pingInterval: 25000,
+  maxHttpBufferSize: 1e6,
+  path: '/socket.io/',  
+  serveClient: false
+  
+});
+
+ 
 connectDB();
 
-// Initialize WebSocket and Socket.io only in non-serverless environment
-let wsServer, notificationService, io;
+ 
+const wsServer = new NotificationWebSocketServer(server);
+console.log('🔗 WebSocket server initialized');
 
-if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
-  // Initialize Socket.IO
-  io = new Server(server, {
-    cors: {
-      origin: allowedOrigins,
-      methods: ["GET", "POST"],
-      credentials: true
-    },
-    transports: ['polling', 'websocket'],
-    allowEIO3: true,
-    pingTimeout: 60000,
-    pingInterval: 25000,
-    maxHttpBufferSize: 1e6,
-    path: '/socket.io/',  
-    serveClient: false
-  });
+ 
+const notificationService = new NotificationService(wsServer);
 
-  wsServer = new NotificationWebSocketServer(server);
-  console.log('🔗 WebSocket server initialized');
-
-  notificationService = new NotificationService(wsServer);
-  
-  app.set('notificationService', notificationService);
-} else {
-  console.log('🚀 Running in serverless mode - WebSocket disabled');
-}
+ 
+app.set('notificationService', notificationService);
  
 app.use("/api/rides", rideRoutes);
 app.use("/auth", authRoutes);
 app.use("/auth", otpRoutes);
 app.use("/api/otp", otpRoutes);
 app.use("/api/user", userRoutes);
-// Only add chat routes if available
-if (chatRoutes) {
-  app.use("/api/chat", chatRoutes);
-}
+app.use("/api/chat", chatRoutes);
 app.use("/api/payments", paymentRoutes);
 
-// Only add notification routes if WebSocket is available
-if (wsServer && notificationService) {
-  const notificationRoutes = createNotificationRoutes(wsServer, notificationService);
-  app.use('/api/notifications', notificationRoutes);
-}
+ 
+const notificationRoutes = createNotificationRoutes(wsServer, notificationService);
+app.use('/api/notifications', notificationRoutes);
 
  
 
@@ -382,33 +364,31 @@ app.use((req, res, next) => {
   });
 });
 
-// Only start server if not in serverless environment
-if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
-  const PORT = process.env.PORT || 5000;
-  
-  server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-    console.log(`1-on-1 Chat System Ready`);
-    console.log(`WebSocket server ready at ws://localhost:${PORT}/ws/notifications`);
-    console.log(`Real-time notifications active`);
-    console.log(`API Base URL: http://localhost:${PORT}/api`);
-  });
+const PORT = process.env.PORT || 5000;
 
-  process.on('uncaughtException', (error) => {
-    console.error('Uncaught Exception:', error);
-  });
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  console.log(`1-on-1 Chat System Ready`);
+  console.log(`WebSocket server ready at ws://localhost:${PORT}/ws/notifications`);
+  console.log(`Real-time notifications active`);
+  console.log(`API Base URL: http://localhost:${PORT}/api`);
+   
 
-  process.on('unhandledRejection', (error) => {
-    console.error('Unhandled Rejection:', error);
-  });
+});
 
-  process.on('SIGTERM', () => {
-    console.log('SIGTERM received, shutting down gracefully');
-    server.close(() => {
-      console.log('Process terminated');
-    });
-  });
-}
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+});
 
-// Export app for serverless
-module.exports = app;
+process.on('unhandledRejection', (error) => {
+  console.error('Unhandled Rejection:', error);
+});
+
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, shutting down gracefully');
+  server.close(() => {
+    console.log('Process terminated');
+  });
+});
+
+module.exports = { app, server, io, wsServer, notificationService };
