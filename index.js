@@ -43,35 +43,37 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Initialize Socket.IO
-const io = new Server(server, {
-  cors: {
-    origin: allowedOrigins,
-    methods: ["GET", "POST"],
-    credentials: true
-  },
-  transports: ['polling', 'websocket'], // ✅ FIXED: Try polling first
-  allowEIO3: true,
-  pingTimeout: 60000,
-  pingInterval: 25000,
-  maxHttpBufferSize: 1e6,
-  path: '/socket.io/',  
-  serveClient: false
-  
-});
-
- 
 connectDB();
 
- 
-const wsServer = new NotificationWebSocketServer(server);
-console.log('🔗 WebSocket server initialized');
+// Initialize WebSocket and Socket.io only in non-serverless environment
+let wsServer, notificationService, io;
 
- 
-const notificationService = new NotificationService(wsServer);
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+  // Initialize Socket.IO
+  io = new Server(server, {
+    cors: {
+      origin: allowedOrigins,
+      methods: ["GET", "POST"],
+      credentials: true
+    },
+    transports: ['polling', 'websocket'],
+    allowEIO3: true,
+    pingTimeout: 60000,
+    pingInterval: 25000,
+    maxHttpBufferSize: 1e6,
+    path: '/socket.io/',  
+    serveClient: false
+  });
 
- 
-app.set('notificationService', notificationService);
+  wsServer = new NotificationWebSocketServer(server);
+  console.log('🔗 WebSocket server initialized');
+
+  notificationService = new NotificationService(wsServer);
+  
+  app.set('notificationService', notificationService);
+} else {
+  console.log('🚀 Running in serverless mode - WebSocket disabled');
+}
  
 app.use("/api/rides", rideRoutes);
 app.use("/auth", authRoutes);
@@ -81,9 +83,11 @@ app.use("/api/user", userRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/payments", paymentRoutes);
 
- 
-const notificationRoutes = createNotificationRoutes(wsServer, notificationService);
-app.use('/api/notifications', notificationRoutes);
+// Only add notification routes if WebSocket is available
+if (wsServer && notificationService) {
+  const notificationRoutes = createNotificationRoutes(wsServer, notificationService);
+  app.use('/api/notifications', notificationRoutes);
+}
 
  
 
@@ -364,31 +368,33 @@ app.use((req, res, next) => {
   });
 });
 
-const PORT = process.env.PORT || 5000;
-
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`1-on-1 Chat System Ready`);
-  console.log(`WebSocket server ready at ws://localhost:${PORT}/ws/notifications`);
-  console.log(`Real-time notifications active`);
-  console.log(`API Base URL: http://localhost:${PORT}/api`);
-   
-
-});
-
-process.on('uncaughtException', (error) => {
-  console.error('Uncaught Exception:', error);
-});
-
-process.on('unhandledRejection', (error) => {
-  console.error('Unhandled Rejection:', error);
-});
-
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully');
-  server.close(() => {
-    console.log('Process terminated');
+// Only start server if not in serverless environment
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+  const PORT = process.env.PORT || 5000;
+  
+  server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+    console.log(`1-on-1 Chat System Ready`);
+    console.log(`WebSocket server ready at ws://localhost:${PORT}/ws/notifications`);
+    console.log(`Real-time notifications active`);
+    console.log(`API Base URL: http://localhost:${PORT}/api`);
   });
-});
 
-module.exports = { app, server, io, wsServer, notificationService };
+  process.on('uncaughtException', (error) => {
+    console.error('Uncaught Exception:', error);
+  });
+
+  process.on('unhandledRejection', (error) => {
+    console.error('Unhandled Rejection:', error);
+  });
+
+  process.on('SIGTERM', () => {
+    console.log('SIGTERM received, shutting down gracefully');
+    server.close(() => {
+      console.log('Process terminated');
+    });
+  });
+}
+
+// Export app for serverless
+module.exports = app;
